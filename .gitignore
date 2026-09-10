@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+Plans/
+tutorial.md
+
+.env
+.env.*
+!.env.example
+
+*.log
+npm-debug.log*
+
+.DS_Store
+.idea/
+.vscode/
