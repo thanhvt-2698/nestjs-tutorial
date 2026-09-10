@@ -10,6 +10,9 @@ tutorial.md
 
 *.log
 npm-debug.log*
+sunlint-summary.json
+sunlint-report.html
+.sunlint-eslint.config.js
 
 .DS_Store
 .idea/
