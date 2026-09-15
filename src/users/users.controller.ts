@@ -62,11 +62,6 @@ export class UsersController {
     @CurrentUser() currentUser: AuthenticatedUser,
     @Body() body: UpdateUserDto,
   ) {
-    const updatedUser = await this.usersService.update(
-      currentUser.id,
-      body.user,
-    );
-
-    return this.authService.createAuthResponse(updatedUser);
+    return this.authService.updateCurrentUser(currentUser.id, body.user);
   }
 }

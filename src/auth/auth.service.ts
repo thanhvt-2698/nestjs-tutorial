@@ -12,6 +12,7 @@ import {
   UserRecord,
   UserResponse,
 } from '../users/interfaces/user.interface';
+import { UpdateUserInput } from '../users/interfaces/update-user-input.interface';
 import { UsersService } from '../users/users.service';
 
 @Injectable()
@@ -57,6 +58,15 @@ export class AuthService {
 
   toResponse(user: AuthenticatedUser): UserResponse {
     return this.usersService.toResponse(user);
+  }
+
+  async updateCurrentUser(
+    userId: string,
+    input: UpdateUserInput,
+  ): Promise<AuthResponse> {
+    const updatedUser = await this.usersService.update(userId, input);
+
+    return this.createAuthResponse(updatedUser);
   }
 
   createAuthResponse(user: UserRecord): AuthResponse {

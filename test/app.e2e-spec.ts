@@ -53,7 +53,9 @@ describe('AppController (e2e)', () => {
     userRepository = app.get<Repository<UserEntity>>(
       getRepositoryToken(UserEntity),
     );
-    await userRepository.clear();
+    await userRepository.query(
+      'TRUNCATE TABLE "users" RESTART IDENTITY CASCADE',
+    );
   });
 
   it('/ (GET)', () => {

@@ -1,4 +1,4 @@
-import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
 import {
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -26,13 +26,8 @@ export class ProfilesController {
   @ApiOkResponse({ description: 'Public profile', type: ProfileResponseDto })
   @ApiNotFoundResponse({ description: 'Profile not found' })
   async getProfile(@Param('username') username: string) {
-    const profile =
-      await this.usersService.findPublicProfileByUsername(username);
-
-    if (!profile) {
-      throw new NotFoundException('Profile not found');
-    }
-
-    return { profile };
+    return {
+      profile: await this.usersService.getPublicProfileByUsername(username),
+    };
   }
 }

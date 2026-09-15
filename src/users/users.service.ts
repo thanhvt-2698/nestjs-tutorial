@@ -10,7 +10,10 @@ import * as bcrypt from 'bcrypt';
 import { QueryFailedError, Repository } from 'typeorm';
 import { PASSWORD_SALT_ROUNDS } from '../auth/constants/auth.constants';
 import { DatabaseOperationError } from './database-operation.error';
-import { POSTGRES_UNIQUE_VIOLATION_CODE } from './constants/users.constants';
+import {
+  DEFAULT_PROFILE_FOLLOWING_STATUS,
+  POSTGRES_UNIQUE_VIOLATION_CODE,
+} from './constants/users.constants';
 import { PublicProfile } from './interfaces/profile.interface';
 import { UserEntity } from './entities/user.entity';
 import {
@@ -116,9 +119,7 @@ export class UsersService {
     );
   }
 
-  async findPublicProfileByUsername(
-    username: string,
-  ): Promise<PublicProfile | undefined> {
+  async getPublicProfileByUsername(username: string): Promise<PublicProfile> {
     const normalizedUsername = this.normalizeUsername(username);
     const user = await this.usersRepository.findOne({
       select: {
@@ -130,12 +131,12 @@ export class UsersService {
     });
 
     if (!user) {
-      return undefined;
+      throw new NotFoundException('Profile not found');
     }
 
     return {
       bio: user.bio,
-      following: false,
+      following: DEFAULT_PROFILE_FOLLOWING_STATUS,
       image: user.image,
       username: user.username,
     };
@@ -148,7 +149,17 @@ export class UsersService {
       );
     }
 
-    const user = await this.usersRepository.findOne({ where: { id } });
+    const user = await this.usersRepository.findOne({
+      select: {
+        bio: true,
+        email: true,
+        id: true,
+        image: true,
+        passwordHash: true,
+        username: true,
+      },
+      where: { id },
+    });
 
     if (!user) {
       throw new NotFoundException('User not found');
