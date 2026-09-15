@@ -59,7 +59,7 @@ export class AuthService {
     return this.usersService.toResponse(user);
   }
 
-  private createAuthResponse(user: UserRecord): AuthResponse {
+  createAuthResponse(user: UserRecord): AuthResponse {
     const token = this.jwtService.sign(
       {
         sub: user.id,

@@ -6,6 +6,8 @@ Backend API được xây dựng bằng NestJS, lấy cảm hứng từ [RealWor
 
 - Đăng ký và đăng nhập người dùng bằng JWT.
 - Lấy thông tin người dùng hiện tại bằng JWT.
+- Cập nhật username, password, bio và image của user hiện tại.
+- Xem profile public theo username.
 - Validate request body và giới hạn tốc độ request đăng nhập.
 - Lưu trữ user trong PostgreSQL thông qua TypeORM.
 - Tài liệu API tương tác bằng Swagger/OpenAPI.
@@ -132,6 +134,8 @@ Base path của API là `/api`.
 | `POST` | `/api/users` | Đăng ký user |
 | `POST` | `/api/users/login` | Đăng nhập |
 | `GET` | `/api/user` | Lấy user hiện tại |
+| `PUT` | `/api/user` | Cập nhật user hiện tại |
+| `GET` | `/api/profiles/:username` | Lấy profile public |
 
 Các endpoint cần xác thực sử dụng một trong hai header sau:
 
@@ -161,6 +165,23 @@ curl -X POST http://localhost:3000/api/users/login \
 ```bash
 curl http://localhost:3000/api/user \
   -H "Authorization: Bearer <jwt>"
+```
+
+Cập nhật một phần user hiện tại:
+
+```bash
+curl -X PUT http://localhost:3000/api/user \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <jwt>" \
+  -d '{"user":{"bio":"Backend developer","image":"https://example.com/avatar.png"}}'
+```
+
+Email không được phép thay đổi. Response cập nhật luôn trả về token mới. Khi đổi password, password cũ sẽ không còn đăng nhập được.
+
+Xem profile public, không cần JWT:
+
+```bash
+curl http://localhost:3000/api/profiles/jake
 ```
 
 ## Kiểm thử và coding standard
@@ -221,7 +242,7 @@ npm run db:migration:run:test
 │   ├── auth/                # Registration, login và JWT authentication
 │   ├── config/              # Application và database configuration
 │   ├── database/migrations/ # TypeORM migrations
-│   ├── users/               # User entity và user service
+│   ├── users/               # User controllers, DTOs, entity và service
 │   ├── app.module.ts
 │   └── main.ts
 ├── test/                    # End-to-end tests
