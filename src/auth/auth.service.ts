@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { PASSWORD_SALT_ROUNDS } from './constants/auth.constants';
 import { getJwtExpiresIn } from '../config/jwt.config';
 import { LoginUserDto } from './dto/login.dto';
 import { RegisterUserDto } from './dto/register.dto';
@@ -12,8 +13,6 @@ import {
   UserResponse,
 } from '../users/interfaces/user.interface';
 import { UsersService } from '../users/users.service';
-
-const PASSWORD_SALT_ROUNDS = 12;
 
 @Injectable()
 export class AuthService {

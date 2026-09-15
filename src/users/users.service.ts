@@ -1,21 +1,15 @@
 import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
+import { DatabaseOperationError } from './database-operation.error';
+import { POSTGRES_UNIQUE_VIOLATION_CODE } from './constants/users.constants';
+import { UserEntity } from './entities/user.entity';
 import {
   AuthenticatedUser,
   UserRecord,
   UserResponse,
 } from './interfaces/user.interface';
-import { UserEntity } from './entities/user.entity';
-import { DatabaseOperationError } from './database-operation.error';
-
-const POSTGRES_UNIQUE_VIOLATION_CODE = '23505';
-
-export interface CreateUserInput {
-  email: string;
-  username: string;
-  passwordHash: string;
-}
+import { CreateUserInput } from './interfaces/create-user-input.interface';
 
 @Injectable()
 export class UsersService {
@@ -84,21 +78,35 @@ export class UsersService {
     );
   }
 
-  async findById(id: string): Promise<UserRecord | undefined> {
-    return (await this.usersRepository.findOne({ where: { id } })) ?? undefined;
+  async findById(id: string): Promise<AuthenticatedUser | undefined> {
+    return (
+      (await this.usersRepository.findOne({
+        select: {
+          bio: true,
+          email: true,
+          id: true,
+          image: true,
+          username: true,
+        },
+        where: { id },
+      })) ?? undefined
+    );
   }
 
-  async findByUsername(username: string): Promise<UserRecord | undefined> {
+  async findByUsername(
+    username: string,
+  ): Promise<Pick<UserRecord, 'id'> | undefined> {
     const normalizedUsername = this.normalizeUsername(username);
 
     return (
       (await this.usersRepository.findOne({
+        select: { id: true },
         where: { username: normalizedUsername },
       })) ?? undefined
     );
   }
 
-  toAuthenticatedUser(user: UserRecord): AuthenticatedUser {
+  toAuthenticatedUser(user: AuthenticatedUser | UserRecord): AuthenticatedUser {
     return {
       bio: user.bio,
       email: user.email,
