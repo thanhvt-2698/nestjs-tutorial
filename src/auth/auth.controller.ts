@@ -1,15 +1,6 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
-  ApiBearerAuth,
   ApiBody,
   ApiConflictResponse,
   ApiCreatedResponse,
@@ -20,15 +11,9 @@ import {
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
-import { CurrentUser } from './decorators/current-user.decorator';
-import {
-  AuthResponseDto,
-  CurrentUserResponseDto,
-} from './dto/auth-response.dto';
+import { AuthResponseDto } from './dto/auth-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import type { AuthenticatedUser } from '../users/interfaces/user.interface';
 import { noCacheHeaders } from '../common/decorators/no-cache-headers.decorator';
 
 @Controller('api')
@@ -61,19 +46,5 @@ export class AuthController {
   @ApiUnauthorizedResponse({ description: 'Invalid email or password' })
   login(@Body() body: LoginDto) {
     return this.authService.login(body.user);
-  }
-
-  @Get('user')
-  @UseGuards(JwtAuthGuard)
-  @noCacheHeaders()
-  @ApiBearerAuth('jwt')
-  @ApiOperation({
-    description: 'Send Authorization as Bearer <jwt> or Token <jwt>.',
-    summary: 'Get the authenticated user',
-  })
-  @ApiOkResponse({ description: 'Current user', type: CurrentUserResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT' })
-  getCurrentUser(@CurrentUser() user: AuthenticatedUser) {
-    return { user: this.authService.toResponse(user) };
   }
 }

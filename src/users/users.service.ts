@@ -1,8 +1,20 @@
-import { ConflictException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as bcrypt from 'bcrypt';
 import { QueryFailedError, Repository } from 'typeorm';
+import { PASSWORD_SALT_ROUNDS } from '../auth/constants/auth.constants';
 import { DatabaseOperationError } from './database-operation.error';
-import { POSTGRES_UNIQUE_VIOLATION_CODE } from './constants/users.constants';
+import {
+  DEFAULT_PROFILE_FOLLOWING_STATUS,
+  POSTGRES_UNIQUE_VIOLATION_CODE,
+} from './constants/users.constants';
+import { PublicProfile } from './interfaces/profile.interface';
 import { UserEntity } from './entities/user.entity';
 import {
   AuthenticatedUser,
@@ -10,6 +22,7 @@ import {
   UserResponse,
 } from './interfaces/user.interface';
 import { CreateUserInput } from './interfaces/create-user-input.interface';
+import { UpdateUserInput } from './interfaces/update-user-input.interface';
 
 @Injectable()
 export class UsersService {
@@ -104,6 +117,110 @@ export class UsersService {
         where: { username: normalizedUsername },
       })) ?? undefined
     );
+  }
+
+  async getPublicProfileByUsername(username: string): Promise<PublicProfile> {
+    const normalizedUsername = this.normalizeUsername(username);
+    const user = await this.usersRepository.findOne({
+      select: {
+        bio: true,
+        image: true,
+        username: true,
+      },
+      where: { username: normalizedUsername },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Profile not found');
+    }
+
+    return {
+      bio: user.bio,
+      following: DEFAULT_PROFILE_FOLLOWING_STATUS,
+      image: user.image,
+      username: user.username,
+    };
+  }
+
+  async update(id: string, input: UpdateUserInput): Promise<UserRecord> {
+    if (Object.keys(input).length === 0) {
+      throw new BadRequestException(
+        'At least one user field must be provided for update',
+      );
+    }
+
+    const user = await this.usersRepository.findOne({
+      select: {
+        bio: true,
+        email: true,
+        id: true,
+        image: true,
+        passwordHash: true,
+        username: true,
+      },
+      where: { id },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (input.username !== undefined) {
+      const username = this.normalizeUsername(input.username);
+
+      if (username !== user.username) {
+        const existingUser = await this.findByUsername(username);
+
+        if (existingUser && existingUser.id !== id) {
+          throw new ConflictException('Username is already in use');
+        }
+
+        user.username = username;
+      }
+    }
+
+    if (input.password !== undefined) {
+      user.passwordHash = await bcrypt.hash(
+        input.password,
+        PASSWORD_SALT_ROUNDS,
+      );
+    }
+
+    if (input.bio !== undefined) {
+      user.bio = input.bio;
+    }
+
+    if (input.image !== undefined) {
+      user.image = input.image;
+    }
+
+    try {
+      return await this.usersRepository.save(user);
+    } catch (error) {
+      if (this.isUniqueViolation(error)) {
+        this.logger.warn({
+          message: 'Rejected duplicate user update',
+          operation: 'UsersService.update',
+          userId: id,
+        });
+        throw new ConflictException({
+          error: 'UserConflict',
+          guidance: 'Use a unique email and username',
+          message: 'Email or username is already in use',
+        });
+      }
+
+      this.logger.error({
+        error: this.getErrorDetails(error),
+        message: 'Failed to update user',
+        operation: 'UsersService.update',
+        userId: id,
+      });
+
+      throw new DatabaseOperationError('Unable to update user', {
+        cause: error,
+      });
+    }
   }
 
   toAuthenticatedUser(user: AuthenticatedUser | UserRecord): AuthenticatedUser {
