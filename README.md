@@ -1,191 +1,239 @@
 # NestJS Tutorial — Medium Clone API
 
-Backend API project dùng NestJS để thực hành xây dựng một phiên bản Medium clone theo [RealWorld specification](https://realworld-docs.netlify.app/). Project tập trung vào backend, không xây dựng frontend.
+Backend API được xây dựng bằng NestJS, lấy cảm hứng từ [RealWorld specification](https://realworld-docs.netlify.app/). Project cung cấp nền tảng cho một ứng dụng chia sẻ bài viết kiểu Medium, không bao gồm frontend.
 
-## Mục tiêu học tập
+## Chức năng
 
-Trong quá trình triển khai, project tập trung vào các kiến thức trọng tâm của NestJS:
-
-- Kiến trúc modular và cách tổ chức `@Module()`.
-- Xây dựng routes, controllers và API endpoints với `@Get()`, `@Post()`, `@Patch()` và `@Delete()`.
-- Kết nối database bằng TypeORM với PostgreSQL hoặc MySQL.
-- Authentication bằng JWT.
-- Validation, pipes, filters, exception handling và middleware.
-- Viết test, self-review và review chéo theo coding convention.
-
-Thời lượng dự kiến: khoảng 10 ngày.
-
-## Feature roadmap
-
-| # | Chức năng | Phạm vi chính | Ưu tiên |
-|---|---|---|---|
-| 1 | Authentication với JWT | Sign up, login, xác thực request và logout ở client | Bắt buộc |
-| 2 | Users | CRU user, settings và public profile; không xóa user | Bắt buộc |
-| 3 | Articles | CRUD article, slug, tags và ownership | Bắt buộc |
-| 4 | Comments | Create/read/delete comment; không update comment | Bắt buộc |
-| 5 | Article lists | Danh sách article, filter và pagination | Bắt buộc |
-| 6 | Favorite articles | Favorite/unfavorite và favorites count | Tùy tiến độ |
-| 7 | Follow users | Follow/unfollow và feed theo following | Tùy tiến độ |
-
-Khuyến nghị hoàn thành 5 chức năng đầu tiên trước. Favorites và Following sẽ triển khai tùy tiến độ.
+- Đăng ký và đăng nhập người dùng bằng JWT.
+- Lấy thông tin người dùng hiện tại bằng JWT.
+- Validate request body và giới hạn tốc độ request đăng nhập.
+- Lưu trữ user trong PostgreSQL thông qua TypeORM.
+- Tài liệu API tương tác bằng Swagger/OpenAPI.
 
 ## Công nghệ
 
-- Node.js `>=22.22.3` — phiên bản được pin trong [.tool-versions](.tool-versions).
-- NestJS 11.
-- TypeScript strict mode.
+- Node.js `22.22.3` trở lên.
+- NestJS 11 và TypeScript strict mode.
+- PostgreSQL 16 và Docker Compose.
+- TypeORM, Passport, JWT và bcrypt.
+- Jest và Supertest.
+
+## Yêu cầu môi trường
+
+- Node.js `22.22.3` hoặc cao hơn.
 - npm.
-- Jest cho unit test và e2e test.
-- TypeORM + PostgreSQL hoặc MySQL — sẽ được bổ sung ở bước database model.
-- JWT — sẽ được bổ sung ở bước Authentication.
+- Docker và Docker Compose.
 
-## Project setup hiện tại
-
-Project đã được scaffold với NestJS và có cấu trúc cơ bản:
-
-```text
-.
-├── src/
-│   ├── app.controller.ts
-│   ├── app.module.ts
-│   ├── app.service.ts
-│   └── main.ts
-├── test/
-│   ├── app.e2e-spec.ts
-│   └── jest-e2e.json
-├── .gitignore
-├── .tool-versions
-├── nest-cli.json
-├── package.json
-└── tsconfig.json
-```
-
-Các module nghiệp vụ sẽ được thêm dần theo thứ tự roadmap, tránh đưa toàn bộ feature vào một pull request.
-
-## Cài đặt và chạy project
-
-Kiểm tra Node.js:
+Phiên bản Node.js của project được khai báo trong [.tool-versions](.tool-versions). Kiểm tra môi trường:
 
 ```bash
 node --version
+npm --version
+docker --version
+docker compose version
 ```
 
-Cài dependencies:
+## Cài đặt
+
+Clone repository và cài dependencies:
 
 ```bash
-npm install
+git clone git@github.com:thanhvt-2698/nestjs-tutorial.git
+cd nestjs-tutorial
+npm ci
 ```
 
-Chạy development server:
+Tạo file environment local:
+
+```bash
+cp .env.example .env
+```
+
+Các biến môi trường được hỗ trợ:
+
+| Tên | Mô tả | Giá trị mặc định |
+|---|---|---|
+| `PORT` | Port của HTTP server | `3000` |
+| `JWT_SECRET` | Secret dùng để ký JWT | Bắt buộc thay đổi |
+| `JWT_EXPIRES_IN` | Thời hạn JWT | `1h` |
+| `DB_HOST` | Host PostgreSQL | `localhost` |
+| `DB_PORT` | Port PostgreSQL | `5432` |
+| `DB_USERNAME` | User PostgreSQL | `nestjs` |
+| `DB_PASSWORD` | Password PostgreSQL | `nestjs` |
+| `DB_NAME` | Database chính | `nestjs_tutorial` |
+| `DB_TEST_NAME` | Database dành cho e2e test | `nestjs_tutorial_test` |
+
+`JWT_SECRET` phải là một secret ngẫu nhiên đủ dài. Không commit file `.env` hoặc secret thật vào repository.
+
+## Database và migration
+
+Khởi động PostgreSQL local:
+
+```bash
+docker compose up -d
+docker compose ps
+```
+
+Database được tạo bởi Docker Compose. Bảng `users` được tạo bởi migration trong [src/database/migrations](src/database/migrations), không dùng TypeORM `synchronize`.
+
+Chạy migration thủ công:
+
+```bash
+npm run db:migration:show
+npm run db:migration:run
+```
+
+Khi thay đổi schema, tạo migration mới và chạy migration đó trong môi trường development/production. Hai môi trường sử dụng cùng migration files trong source code.
+
+Ứng dụng không tự động chạy migration khi khởi động. Migration phải được chạy chủ động bằng lệnh trước khi start app:
+
+```bash
+npm run db:migration:run
+```
+
+Các lệnh database khác:
+
+```bash
+npm run db:migration:revert
+docker compose down
+```
+
+`docker compose down -v` sẽ xóa PostgreSQL volume và toàn bộ dữ liệu local, chỉ sử dụng khi muốn tạo lại database từ đầu.
+
+## Chạy project
+
+Sau khi PostgreSQL đã chạy và migration đã hoàn tất:
 
 ```bash
 npm run start:dev
 ```
 
-Mở [http://localhost:3000](http://localhost:3000). Endpoint khởi tạo `GET /` hiện trả về `Hello World!`.
+Các URL local:
 
-Chạy production build:
+- API: [http://localhost:3000](http://localhost:3000)
+- Health endpoint: [http://localhost:3000/](http://localhost:3000/)
+- Swagger UI: [http://localhost:3000/docs](http://localhost:3000/docs)
+- OpenAPI JSON: [http://localhost:3000/docs-json](http://localhost:3000/docs-json)
+
+Build và chạy production:
 
 ```bash
+npm run db:migration:run
 npm run build
 npm run start:prod
 ```
 
-## Các npm scripts
+## Authentication API
 
-```bash
-npm run start          # Chạy ứng dụng
-npm run start:dev      # Chạy watch mode
-npm run start:prod     # Chạy bản build trong dist/
-npm run build          # Compile TypeScript
-npm run lint           # Kiểm tra và tự format lint issues
-npm run test           # Unit tests
-npm run test:e2e       # End-to-end tests
-npm run test:cov       # Test coverage
-```
+Base path của API là `/api`.
 
-## Thứ tự triển khai dự kiến
+| Method | Endpoint | Mô tả |
+|---|---|---|
+| `POST` | `/api/users` | Đăng ký user |
+| `POST` | `/api/users/login` | Đăng nhập |
+| `GET` | `/api/user` | Lấy user hiện tại |
 
-### Phase 0 — Init code base
-
-- Scaffold NestJS TypeScript strict.
-- Thiết lập npm scripts, lint, test và Node version.
-- Thiết lập Git local và remote repository.
-
-### Phase 1 — Init model
-
-- Chọn PostgreSQL hoặc MySQL.
-- Kết nối TypeORM.
-- Tạo entities và migrations cho users, articles, comments, favorites và follows.
-- Thiết lập relationships, indexes, unique constraints và delete policy.
-
-### Phase 2 — Authentication và Users
-
-- Register/login bằng JWT.
-- Hash password và bảo vệ private endpoints.
-- Lấy/cập nhật current user.
-- Hiển thị public profile.
-
-### Phase 3 — Articles, Comments và Lists
-
-- CRUD articles.
-- Tạo/đọc/xóa comments.
-- Danh sách articles với `limit`/`offset`, filters và feed cơ bản.
-
-### Phase 4 — Favorites và Following
-
-- Favorite/unfavorite article.
-- Follow/unfollow user.
-- Tính `favorited`, `following` và following feed.
-
-### Phase 5 — Quality và review
-
-- Bổ sung validation, exception handling, logging và API documentation.
-- Chạy build, lint, unit test và e2e test.
-- Self-review trước khi gửi pull request.
-- Sửa 100% Sunlint errors; warning nên được xử lý khi phù hợp.
-
-## Git workflow
-
-Repository sử dụng remote SSH:
+Các endpoint cần xác thực sử dụng một trong hai header sau:
 
 ```text
-git@github.com:thanhvt-2698/nestjs-tutorial.git
+Authorization: Bearer <jwt>
+Authorization: Token <jwt>
 ```
 
-Nguyên tắc làm việc:
-
-1. Init code base trước.
-2. Tạo pull request riêng cho database model và relationships.
-3. Mỗi pull request chỉ nên chứa một API hoặc một nhóm thay đổi nhỏ liên quan.
-4. Giữ thay đổi ở mức vài trăm dòng trở xuống khi có thể để dễ review.
-5. Self-review trước khi gửi pull request.
-6. Review chéo và chỉ merge sau khi nhận được ít nhất một approval.
-
-Kiểm tra trạng thái và push branch hiện tại:
+Đăng ký user:
 
 ```bash
-git status
-git remote -v
-git push -u origin main
+curl -X POST http://localhost:3000/api/users \
+  -H "Content-Type: application/json" \
+  -d '{"user":{"email":"jake@example.com","username":"jake","password":"Password123!"}}'
 ```
 
-## Coding standards
+Đăng nhập:
 
-- [Sunlint installation và source code standards](https://coding-standards.sun-asterisk.vn/docs/installation) là tiêu chuẩn bắt buộc.
-- Phải fix 100% các rule có mức `error`.
-- Khuyến khích fix các rule có mức `warning`.
-- Khi gửi pull request, đính kèm evidence kết quả chạy Sunlint.
-- Tham khảo [Google TypeScript Style Guide](https://google.github.io/styleguide/tsguide.html).
+```bash
+curl -X POST http://localhost:3000/api/users/login \
+  -H "Content-Type: application/json" \
+  -d '{"user":{"email":"jake@example.com","password":"Password123!"}}'
+```
+
+Để test endpoint `/api/user`, lấy `token` từ response đăng nhập rồi gửi:
+
+```bash
+curl http://localhost:3000/api/user \
+  -H "Authorization: Bearer <jwt>"
+```
+
+## Kiểm thử và coding standard
+
+Unit test:
+
+```bash
+npm test -- --runInBand
+```
+
+E2E test cần migration cho database test trước khi chạy:
+
+```bash
+npm run db:migration:show:test
+npm run db:migration:run:test
+npm run test:e2e -- --runInBand
+```
+
+E2E test sử dụng database trong `DB_TEST_NAME` và xóa dữ liệu user test trước mỗi test case.
+
+Kiểm tra code trước khi tạo pull request:
+
+```bash
+npm run lint
+npm run lint:sun
+npm run build
+npx prettier --check "src/**/*.ts" "test/**/*.ts"
+npx tsc --noEmit
+```
+
+Project áp dụng [SunLint](https://coding-standards.sun-asterisk.vn/docs/installation) và [Google TypeScript Style Guide](https://google.github.io/styleguide/tsguide.html).
+
+## Npm scripts chính
+
+```bash
+npm run start:dev        # Development server với watch mode
+npm run start            # Chạy server bình thường
+npm run start:prod       # Chạy bản build trong dist/
+npm run build            # Compile TypeScript
+npm run lint             # ESLint
+npm run lint:sun         # SunLint
+npm test                 # Unit test
+npm run test:e2e         # End-to-end test
+npm run test:cov         # Test coverage
+npm run db:migration:show
+npm run db:migration:run
+npm run db:migration:revert
+npm run db:migration:show:test
+npm run db:migration:run:test
+```
+
+## Cấu trúc thư mục
+
+```text
+.
+├── docker/                  # PostgreSQL initialization scripts
+├── src/
+│   ├── auth/                # Registration, login và JWT authentication
+│   ├── config/              # Application và database configuration
+│   ├── database/migrations/ # TypeORM migrations
+│   ├── users/               # User entity và user service
+│   ├── app.module.ts
+│   └── main.ts
+├── test/                    # End-to-end tests
+├── docker-compose.yml
+├── .env.example
+├── package.json
+└── tsconfig.json
+```
 
 ## Tài liệu tham khảo
 
-- [NestJS official website](https://nestjs.com/).
-- [NestJS documentation](https://docs.nestjs.com/).
-- [RealWorld features](https://realworld-docs.netlify.app/implementation-creation/features/).
-- [RealWorld backend endpoints](https://realworld-docs.netlify.app/specifications/backend/endpoints/).
-- [Medium clone wireframe trên Figma](https://www.figma.com/design/bQ02ebnAIsjwg1kTimNSPS/Medium-clone--Copy-?node-id=26-58&t=sHwGzyNSrIOFfx9q-1).
-
-## Local-only planning notes
-
-Thư mục `Plans/` chứa kế hoạch triển khai chi tiết cho 7 feature và được giữ local để phục vụ quá trình học tập. File `tutorial.md` cũng là tài liệu hướng dẫn local. Cả `Plans/` và `tutorial.md` đều nằm trong `.gitignore` và không được commit lên repository.
+- [NestJS documentation](https://docs.nestjs.com/)
+- [NestJS database techniques](https://docs.nestjs.com/techniques/database)
+- [TypeORM migrations](https://typeorm.io/docs/migrations/setup/)
+- [RealWorld specification](https://realworld-docs.netlify.app/)
