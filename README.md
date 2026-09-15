@@ -8,6 +8,7 @@ Backend API được xây dựng bằng NestJS, lấy cảm hứng từ [RealWor
 - Lấy thông tin người dùng hiện tại bằng JWT.
 - Cập nhật username, password, bio và image của user hiện tại.
 - Xem profile public theo username.
+- CRUD bài viết với slug ổn định, author profile và phân quyền theo tác giả.
 - Validate request body và giới hạn tốc độ request đăng nhập.
 - Lưu trữ user trong PostgreSQL thông qua TypeORM.
 - Tài liệu API tương tác bằng Swagger/OpenAPI.
@@ -53,17 +54,17 @@ cp .env.example .env
 
 Các biến môi trường được hỗ trợ:
 
-| Tên | Mô tả | Giá trị mặc định |
-|---|---|---|
-| `PORT` | Port của HTTP server | `3000` |
-| `JWT_SECRET` | Secret dùng để ký JWT | Bắt buộc thay đổi |
-| `JWT_EXPIRES_IN` | Thời hạn JWT | `1h` |
-| `DB_HOST` | Host PostgreSQL | `localhost` |
-| `DB_PORT` | Port PostgreSQL | `5432` |
-| `DB_USERNAME` | User PostgreSQL | `nestjs` |
-| `DB_PASSWORD` | Password PostgreSQL | `nestjs` |
-| `DB_NAME` | Database chính | `nestjs_tutorial` |
-| `DB_TEST_NAME` | Database dành cho e2e test | `nestjs_tutorial_test` |
+| Tên              | Mô tả                      | Giá trị mặc định       |
+| ---------------- | -------------------------- | ---------------------- |
+| `PORT`           | Port của HTTP server       | `3000`                 |
+| `JWT_SECRET`     | Secret dùng để ký JWT      | Bắt buộc thay đổi      |
+| `JWT_EXPIRES_IN` | Thời hạn JWT               | `1h`                   |
+| `DB_HOST`        | Host PostgreSQL            | `localhost`            |
+| `DB_PORT`        | Port PostgreSQL            | `5432`                 |
+| `DB_USERNAME`    | User PostgreSQL            | `nestjs`               |
+| `DB_PASSWORD`    | Password PostgreSQL        | `nestjs`               |
+| `DB_NAME`        | Database chính             | `nestjs_tutorial`      |
+| `DB_TEST_NAME`   | Database dành cho e2e test | `nestjs_tutorial_test` |
 
 `JWT_SECRET` phải là một secret ngẫu nhiên đủ dài. Không commit file `.env` hoặc secret thật vào repository.
 
@@ -76,7 +77,7 @@ docker compose up -d
 docker compose ps
 ```
 
-Database được tạo bởi Docker Compose. Bảng `users` được tạo bởi migration trong [src/database/migrations](src/database/migrations), không dùng TypeORM `synchronize`.
+Database được tạo bởi Docker Compose. Bảng `users` và `articles` được tạo bởi migration trong [src/database/migrations](src/database/migrations), không dùng TypeORM `synchronize`.
 
 Chạy migration thủ công:
 
@@ -129,13 +130,26 @@ npm run start:prod
 
 Base path của API là `/api`.
 
-| Method | Endpoint | Mô tả |
-|---|---|---|
-| `POST` | `/api/users` | Đăng ký user |
-| `POST` | `/api/users/login` | Đăng nhập |
-| `GET` | `/api/user` | Lấy user hiện tại |
-| `PUT` | `/api/user` | Cập nhật user hiện tại |
-| `GET` | `/api/profiles/:username` | Lấy profile public |
+| Method | Endpoint                  | Mô tả                  |
+| ------ | ------------------------- | ---------------------- |
+| `POST` | `/api/users`              | Đăng ký user           |
+| `POST` | `/api/users/login`        | Đăng nhập              |
+| `GET`  | `/api/user`               | Lấy user hiện tại      |
+| `PUT`  | `/api/user`               | Cập nhật user hiện tại |
+| `GET`  | `/api/profiles/:username` | Lấy profile public     |
+
+## Articles API
+
+| Method   | Endpoint              | Auth         | Mô tả                  |
+| -------- | --------------------- | ------------ | ---------------------- |
+| `POST`   | `/api/articles`       | JWT          | Tạo bài viết           |
+| `GET`    | `/api/articles/:slug` | Public       | Lấy bài viết theo slug |
+| `PUT`    | `/api/articles/:slug` | JWT + author | Cập nhật bài viết      |
+| `DELETE` | `/api/articles/:slug` | JWT + author | Xóa bài viết           |
+
+Tags được trim, chuyển thành chữ thường, loại bỏ phần tử rỗng và deduplicate. Slug được tạo từ title; nếu bị trùng, hệ thống thêm hậu tố tuần tự như `-2`. Khi đổi title bằng `PUT`, slug hiện tại được giữ nguyên để URL không thay đổi. `favorited` và `following` trả về `false` cho tới khi các phase favorites/following được triển khai.
+
+Chỉ author của bài viết mới được phép `PUT` hoặc `DELETE`; `authorId`, `favoritesCount` và các trường nội bộ không được nhận từ request.
 
 Các endpoint cần xác thực sử dụng một trong hai header sau:
 
@@ -239,6 +253,7 @@ npm run db:migration:run:test
 .
 ├── docker/                  # PostgreSQL initialization scripts
 ├── src/
+│   ├── articles/             # Article entity, CRUD service/controller và DTO
 │   ├── auth/                # Registration, login và JWT authentication
 │   ├── config/              # Application và database configuration
 │   ├── database/migrations/ # TypeORM migrations

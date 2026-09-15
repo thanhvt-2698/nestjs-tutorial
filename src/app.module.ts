@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ArticlesModule } from './articles/articles.module';
 import { AuthModule } from './auth/auth.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -21,6 +22,7 @@ const DEFAULT_RATE_LIMIT_WINDOW_MS = 60_000;
     ]),
     UsersModule,
     AuthModule,
+    ArticlesModule,
   ],
   controllers: [AppController],
   providers: [

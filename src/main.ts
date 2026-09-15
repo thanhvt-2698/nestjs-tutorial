@@ -28,6 +28,7 @@ async function bootstrap() {
       'jwt',
     )
     .addTag('Authentication', 'Registration, login and current-user endpoints')
+    .addTag('Articles', 'Article CRUD endpoints')
     .build();
   const swaggerDocument = () =>
     SwaggerModule.createDocument(app, swaggerConfig);
