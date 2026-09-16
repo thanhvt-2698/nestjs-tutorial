@@ -1,0 +1,3 @@
+export const DEFAULT_COMMENT_FOLLOWING_STATUS = false;
+export const COMMENT_LIST_ORDER_DIRECTION = 'DESC' as const;
+export const MAX_COMMENT_BODY_LENGTH = 10_000;

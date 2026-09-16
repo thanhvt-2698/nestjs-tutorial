@@ -29,6 +29,7 @@ async function bootstrap() {
     )
     .addTag('Authentication', 'Registration, login and current-user endpoints')
     .addTag('Articles', 'Article CRUD endpoints')
+    .addTag('Comments', 'Article comment endpoints')
     .build();
   const swaggerDocument = () =>
     SwaggerModule.createDocument(app, swaggerConfig);

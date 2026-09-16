@@ -6,6 +6,7 @@ import { ArticlesModule } from './articles/articles.module';
 import { AuthModule } from './auth/auth.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { CommentsModule } from './comments/comments.module';
 import { getDatabaseConfig } from './config/database.config';
 import { UsersModule } from './users/users.module';
 
@@ -23,6 +24,7 @@ const DEFAULT_RATE_LIMIT_WINDOW_MS = 60_000;
     UsersModule,
     AuthModule,
     ArticlesModule,
+    CommentsModule,
   ],
   controllers: [AppController],
   providers: [
