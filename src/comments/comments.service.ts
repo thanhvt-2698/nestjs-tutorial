@@ -61,16 +61,18 @@ export class CommentsService {
     authorId: string,
     input: CreateCommentInput,
   ): Promise<CommentResponseEnvelope> {
-    const article = await this.findArticleOrThrow(slug);
-    const author = await this.usersRepository.findOne({
-      select: {
-        bio: true,
-        id: true,
-        image: true,
-        username: true,
-      },
-      where: { id: authorId },
-    });
+    const [article, author] = await Promise.all([
+      this.findArticleOrThrow(slug),
+      this.usersRepository.findOne({
+        select: {
+          bio: true,
+          id: true,
+          image: true,
+          username: true,
+        },
+        where: { id: authorId },
+      }),
+    ]);
 
     if (!author) {
       throw new NotFoundException('Author not found');

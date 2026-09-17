@@ -73,7 +73,7 @@ export class CreateCommentsTable1710000002000 implements MigrationInterface {
     await queryRunner.createIndex(
       COMMENTS_TABLE_NAME,
       new TableIndex({
-        columnNames: ['article_id', 'created_at'],
+        columnNames: ['article_id', 'created_at', 'id'],
         name: COMMENTS_ARTICLE_CREATED_INDEX_NAME,
       }),
     );
