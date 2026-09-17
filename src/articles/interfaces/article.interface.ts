@@ -18,6 +18,10 @@ export interface ArticleResponse {
   updatedAt: string;
 }
 
+export interface ArticleResponseEnvelope {
+  article: ArticleResponse;
+}
+
 export interface CreateArticleInput {
   body: string;
   description: string;

@@ -2,7 +2,7 @@ import {
   DEFAULT_ARTICLE_SLUG,
   MAX_ARTICLE_SLUG_LENGTH,
   MAX_ARTICLE_TAGS,
-} from '../constants/articles.constants';
+} from '../../articles/constants/articles.constants';
 
 export function normalizeTagList(tagList: string[] | undefined): string[] {
   return [

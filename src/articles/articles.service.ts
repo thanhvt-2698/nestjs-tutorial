@@ -7,7 +7,11 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
-import { MAX_ARTICLE_SLUG_LENGTH } from './constants/articles.constants';
+import {
+  DEFAULT_ARTICLE_FAVORITED_STATUS,
+  DEFAULT_ARTICLE_FAVORITES_COUNT,
+  MAX_ARTICLE_SLUG_LENGTH,
+} from './constants/articles.constants';
 import {
   DEFAULT_PROFILE_FOLLOWING_STATUS,
   POSTGRES_UNIQUE_VIOLATION_CODE,
@@ -17,10 +21,11 @@ import { UserEntity } from '../users/entities/user.entity';
 import { ArticleEntity } from './entities/article.entity';
 import {
   ArticleResponse,
+  ArticleResponseEnvelope,
   CreateArticleInput,
   UpdateArticleInput,
 } from './interfaces/article.interface';
-import { normalizeTagList, slugify } from './utils/article.util';
+import { normalizeTagList, slugify } from '../common/util/article.util';
 
 @Injectable()
 export class ArticlesService {
@@ -35,7 +40,7 @@ export class ArticlesService {
   async create(
     authorId: string,
     input: CreateArticleInput,
-  ): Promise<ArticleResponse> {
+  ): Promise<ArticleResponseEnvelope> {
     const author = await this.usersRepository.findOne({
       select: {
         bio: true,
@@ -54,7 +59,7 @@ export class ArticlesService {
       author,
       body: input.body.trim(),
       description: input.description.trim(),
-      favoritesCount: 0,
+      favoritesCount: DEFAULT_ARTICLE_FAVORITES_COUNT,
       slug: await this.generateUniqueSlug(input.title),
       tagList: normalizeTagList(input.tagList),
       title: input.title.trim(),
@@ -63,7 +68,7 @@ export class ArticlesService {
     try {
       const savedArticle = await this.articlesRepository.save(article);
 
-      return this.toResponse(savedArticle);
+      return this.toResponseEnvelope(savedArticle);
     } catch (error) {
       if (this.isUniqueViolation(error)) {
         this.logger.warn({
@@ -90,17 +95,17 @@ export class ArticlesService {
     }
   }
 
-  async findBySlug(slug: string): Promise<ArticleResponse> {
+  async findBySlug(slug: string): Promise<ArticleResponseEnvelope> {
     const article = await this.findArticleOrThrow(slug);
 
-    return this.toResponse(article);
+    return this.toResponseEnvelope(article);
   }
 
   async update(
     slug: string,
     authorId: string,
     input: UpdateArticleInput,
-  ): Promise<ArticleResponse> {
+  ): Promise<ArticleResponseEnvelope> {
     const article = await this.findArticleOrThrow(slug);
 
     this.assertOwnership(article, authorId);
@@ -123,7 +128,7 @@ export class ArticlesService {
 
     const savedArticle = await this.articlesRepository.save(article);
 
-    return this.toResponse(savedArticle);
+    return this.toResponseEnvelope(savedArticle);
   }
 
   async remove(slug: string, authorId: string): Promise<void> {
@@ -226,12 +231,16 @@ export class ArticlesService {
       body: article.body,
       createdAt: article.createdAt.toISOString(),
       description: article.description,
-      favorited: false,
+      favorited: DEFAULT_ARTICLE_FAVORITED_STATUS,
       favoritesCount: article.favoritesCount,
       slug: article.slug,
       tagList: article.tagList,
       title: article.title,
       updatedAt: article.updatedAt.toISOString(),
     };
+  }
+
+  private toResponseEnvelope(article: ArticleEntity): ArticleResponseEnvelope {
+    return { article: this.toResponse(article) };
   }
 }

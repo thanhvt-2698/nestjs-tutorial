@@ -51,11 +51,7 @@ export class ArticlesController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: CreateArticleDto,
   ) {
-    return this.articlesService
-      .create(user.id, body.article)
-      .then((article) => ({
-        article,
-      }));
+    return this.articlesService.create(user.id, body.article);
   }
 
   @Get(':slug')
@@ -63,9 +59,7 @@ export class ArticlesController {
   @ApiOkResponse({ description: 'Article details', type: ArticleResponseDto })
   @ApiNotFoundResponse({ description: 'Article not found' })
   findBySlug(@Param('slug') slug: string) {
-    return this.articlesService
-      .findBySlug(slug)
-      .then((article) => ({ article }));
+    return this.articlesService.findBySlug(slug);
   }
 
   @Put(':slug')
@@ -83,9 +77,7 @@ export class ArticlesController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: UpdateArticleDto,
   ) {
-    return this.articlesService
-      .update(slug, user.id, body.article)
-      .then((article) => ({ article }));
+    return this.articlesService.update(slug, user.id, body.article);
   }
 
   @Delete(':slug')

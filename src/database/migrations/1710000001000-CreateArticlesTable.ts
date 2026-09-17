@@ -7,6 +7,7 @@ import {
 } from 'typeorm';
 
 const ARTICLES_TABLE_NAME = 'articles';
+const ARTICLES_AUTHOR_INDEX_NAME = 'IDX_articles_author_id';
 const ARTICLES_SLUG_INDEX_NAME = 'IDX_articles_slug_unique';
 const USERS_TABLE_NAME = 'users';
 
@@ -95,6 +96,13 @@ export class CreateArticlesTable1710000001000 implements MigrationInterface {
         columnNames: ['slug'],
         isUnique: true,
         name: ARTICLES_SLUG_INDEX_NAME,
+      }),
+    );
+    await queryRunner.createIndex(
+      ARTICLES_TABLE_NAME,
+      new TableIndex({
+        columnNames: ['author_id'],
+        name: ARTICLES_AUTHOR_INDEX_NAME,
       }),
     );
   }
