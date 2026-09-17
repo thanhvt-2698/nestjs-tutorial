@@ -1,0 +1,9 @@
+export const MAX_ARTICLE_BODY_LENGTH = 100_000;
+export const MAX_ARTICLE_DESCRIPTION_LENGTH = 500;
+export const MAX_ARTICLE_SLUG_LENGTH = 255;
+export const MAX_ARTICLE_TAG_LENGTH = 30;
+export const MAX_ARTICLE_TAGS = 20;
+export const MAX_ARTICLE_TITLE_LENGTH = 200;
+export const DEFAULT_ARTICLE_SLUG = 'article';
+export const DEFAULT_ARTICLE_FAVORITED_STATUS = false;
+export const DEFAULT_ARTICLE_FAVORITES_COUNT = 0;

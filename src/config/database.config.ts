@@ -3,6 +3,7 @@ import 'dotenv/config';
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { join } from 'node:path';
 import type { DataSourceOptions } from 'typeorm';
+import { ArticleEntity } from '../articles/entities/article.entity';
 import { UserEntity } from '../users/entities/user.entity';
 
 const parsePort = (value: string | undefined, fallback: number): number => {
@@ -19,7 +20,7 @@ export function getDatabaseOptions(): DataSourceOptions {
     database: isTestEnvironment
       ? (process.env.DB_TEST_NAME ?? `${databaseName}_test`)
       : databaseName,
-    entities: [UserEntity],
+    entities: [ArticleEntity, UserEntity],
     host: process.env.DB_HOST ?? 'localhost',
     migrations: [join(__dirname, '../database/migrations/*{.js,.ts}')],
     migrationsTableName: 'typeorm_migrations',

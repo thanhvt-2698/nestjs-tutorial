@@ -32,6 +32,26 @@ interface ProfileResponseBody {
   };
 }
 
+interface ArticleResponseBody {
+  article: {
+    author: {
+      bio: null;
+      following: false;
+      image: null;
+      username: string;
+    };
+    body: string;
+    createdAt: string;
+    description: string;
+    favorited: false;
+    favoritesCount: 0;
+    slug: string;
+    tagList: string[];
+    title: string;
+    updatedAt: string;
+  };
+}
+
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
   let userRepository: Repository<UserEntity>;
@@ -365,6 +385,226 @@ describe('AppController (e2e)', () => {
     await request(app.getHttpServer())
       .get('/api/profiles/unknown-user')
       .expect(404);
+  });
+
+  it('creates and reads an article with a normalized tag list', async () => {
+    const registerResponse = await request(app.getHttpServer())
+      .post('/api/users')
+      .send({
+        user: {
+          email: 'jake@example.com',
+          password: 'Password123!',
+          username: 'jake',
+        },
+      })
+      .expect(201);
+    const token = (registerResponse.body as AuthResponseBody).user.token;
+
+    const createResponse = await request(app.getHttpServer())
+      .post('/api/articles')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        article: {
+          body: 'Article content...',
+          description: 'A short introduction',
+          tagList: [' NestJS ', 'typescript', 'nestjs', ''],
+          title: 'How to build a NestJS API',
+        },
+      })
+      .expect(201);
+
+    const responseBody = createResponse.body as ArticleResponseBody;
+    expect(responseBody.article).toMatchObject({
+      author: {
+        bio: null,
+        following: false,
+        image: null,
+        username: 'jake',
+      },
+      body: 'Article content...',
+      description: 'A short introduction',
+      favorited: false,
+      favoritesCount: 0,
+      slug: 'how-to-build-a-nestjs-api',
+      tagList: ['nestjs', 'typescript'],
+      title: 'How to build a NestJS API',
+    });
+    expect(responseBody.article.createdAt).toEqual(expect.any(String));
+    expect(responseBody.article.updatedAt).toEqual(expect.any(String));
+
+    await request(app.getHttpServer())
+      .get('/api/articles/how-to-build-a-nestjs-api')
+      .expect(200)
+      .expect(responseBody);
+  });
+
+  it('generates a unique slug for articles with the same title', async () => {
+    const firstUserResponse = await request(app.getHttpServer())
+      .post('/api/users')
+      .send({
+        user: {
+          email: 'jake@example.com',
+          password: 'Password123!',
+          username: 'jake',
+        },
+      })
+      .expect(201);
+    const firstToken = (firstUserResponse.body as AuthResponseBody).user.token;
+
+    const article = {
+      body: 'Article content...',
+      description: 'A short introduction',
+      tagList: [],
+      title: 'Same title',
+    };
+
+    const firstArticleResponse = await request(app.getHttpServer())
+      .post('/api/articles')
+      .set('Authorization', `Bearer ${firstToken}`)
+      .send({ article })
+      .expect(201);
+
+    const secondUserResponse = await request(app.getHttpServer())
+      .post('/api/users')
+      .send({
+        user: {
+          email: 'alex@example.com',
+          password: 'Password123!',
+          username: 'alex',
+        },
+      })
+      .expect(201);
+    const secondToken = (secondUserResponse.body as AuthResponseBody).user
+      .token;
+
+    const secondArticleResponse = await request(app.getHttpServer())
+      .post('/api/articles')
+      .set('Authorization', `Bearer ${secondToken}`)
+      .send({ article })
+      .expect(201);
+
+    expect(
+      (firstArticleResponse.body as ArticleResponseBody).article.slug,
+    ).toBe('same-title');
+    expect(
+      (secondArticleResponse.body as ArticleResponseBody).article.slug,
+    ).toBe('same-title-2');
+  });
+
+  it('restricts article updates and deletes to the article author', async () => {
+    const ownerResponse = await request(app.getHttpServer())
+      .post('/api/users')
+      .send({
+        user: {
+          email: 'jake@example.com',
+          password: 'Password123!',
+          username: 'jake',
+        },
+      })
+      .expect(201);
+    const ownerToken = (ownerResponse.body as AuthResponseBody).user.token;
+
+    const otherUserResponse = await request(app.getHttpServer())
+      .post('/api/users')
+      .send({
+        user: {
+          email: 'alex@example.com',
+          password: 'Password123!',
+          username: 'alex',
+        },
+      })
+      .expect(201);
+    const otherUserToken = (otherUserResponse.body as AuthResponseBody).user
+      .token;
+
+    await request(app.getHttpServer())
+      .post('/api/articles')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        article: {
+          body: 'Article content...',
+          description: 'A short introduction',
+          tagList: ['nestjs'],
+          title: 'Ownership rules',
+        },
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .put('/api/articles/ownership-rules')
+      .set('Authorization', `Bearer ${otherUserToken}`)
+      .send({ article: { title: 'Not allowed' } })
+      .expect(403);
+
+    const updateResponse = await request(app.getHttpServer())
+      .put('/api/articles/ownership-rules')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        article: {
+          tagList: [' API ', 'nestjs', 'api'],
+          title: 'Updated ownership rules',
+        },
+      })
+      .expect(200);
+    const updateBody = updateResponse.body as ArticleResponseBody;
+
+    expect(updateBody.article).toMatchObject({
+      slug: 'ownership-rules',
+      tagList: ['api', 'nestjs'],
+      title: 'Updated ownership rules',
+    });
+
+    await request(app.getHttpServer())
+      .delete('/api/articles/ownership-rules')
+      .set('Authorization', `Bearer ${otherUserToken}`)
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .delete('/api/articles/ownership-rules')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(204);
+
+    await request(app.getHttpServer())
+      .get('/api/articles/ownership-rules')
+      .expect(404);
+  });
+
+  it('rejects unauthenticated article creation and invalid article bodies', async () => {
+    await request(app.getHttpServer())
+      .post('/api/articles')
+      .send({
+        article: {
+          body: 'Article content...',
+          description: 'A short introduction',
+          title: 'Unauthenticated',
+        },
+      })
+      .expect(401);
+
+    const registerResponse = await request(app.getHttpServer())
+      .post('/api/users')
+      .send({
+        user: {
+          email: 'jake@example.com',
+          password: 'Password123!',
+          username: 'jake',
+        },
+      })
+      .expect(201);
+    const token = (registerResponse.body as AuthResponseBody).user.token;
+
+    await request(app.getHttpServer())
+      .post('/api/articles')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        article: {
+          body: 'Article content...',
+          description: 'A short introduction',
+          title: 'Unexpected field',
+        },
+        unexpected: true,
+      })
+      .expect(400);
   });
 
   afterEach(async () => {
