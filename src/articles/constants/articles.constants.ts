@@ -7,3 +7,6 @@ export const MAX_ARTICLE_TITLE_LENGTH = 200;
 export const DEFAULT_ARTICLE_SLUG = 'article';
 export const DEFAULT_ARTICLE_FAVORITED_STATUS = false;
 export const DEFAULT_ARTICLE_FAVORITES_COUNT = 0;
+export const DEFAULT_ARTICLES_LIMIT = 20;
+export const DEFAULT_ARTICLES_OFFSET = 0;
+export const MAX_ARTICLES_LIMIT = 100;

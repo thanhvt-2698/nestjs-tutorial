@@ -22,6 +22,18 @@ export interface ArticleResponseEnvelope {
   article: ArticleResponse;
 }
 
+export interface ArticleListQuery {
+  author?: string;
+  limit: number;
+  offset: number;
+  tag?: string;
+}
+
+export interface ArticleListResponse {
+  articles: ArticleResponse[];
+  articlesCount: number;
+}
+
 export interface CreateArticleInput {
   body: string;
   description: string;

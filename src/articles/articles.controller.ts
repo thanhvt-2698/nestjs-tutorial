@@ -8,11 +8,13 @@ import {
   Param,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiBadRequestResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
@@ -27,7 +29,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { noCacheHeaders } from '../common/decorators/no-cache-headers.decorator';
 import type { AuthenticatedUser } from '../users/interfaces/user.interface';
 import { ArticlesService } from './articles.service';
-import { ArticleResponseDto } from './dto/article-response.dto';
+import {
+  ArticleListResponseDto,
+  ArticleResponseDto,
+} from './dto/article-response.dto';
+import { ArticleQueryDto } from './dto/article-query.dto';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
 
@@ -52,6 +58,18 @@ export class ArticlesController {
     @Body() body: CreateArticleDto,
   ) {
     return this.articlesService.create(user.id, body.article);
+  }
+
+  @Get()
+  @noCacheHeaders()
+  @ApiOperation({ summary: 'List articles with pagination and filters' })
+  @ApiOkResponse({
+    description: 'Paginated article list',
+    type: ArticleListResponseDto,
+  })
+  @ApiBadRequestResponse({ description: 'Invalid article list query' })
+  findAll(@Query() query: ArticleQueryDto) {
+    return this.articlesService.findAll(query);
   }
 
   @Get(':slug')

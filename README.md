@@ -10,6 +10,7 @@ Backend API được xây dựng bằng NestJS, lấy cảm hứng từ [RealWor
 - Xem profile public theo username.
 - CRUD bài viết với slug ổn định, author profile và phân quyền theo tác giả.
 - Tạo, xem và xóa comment trên bài viết; không hỗ trợ cập nhật comment.
+- Lấy danh sách bài viết theo trang, sắp xếp mới nhất trước và lọc theo tag/author.
 - Validate request body và giới hạn tốc độ request đăng nhập.
 - Lưu trữ user trong PostgreSQL thông qua TypeORM.
 - Tài liệu API tương tác bằng Swagger/OpenAPI.
@@ -78,7 +79,7 @@ docker compose up -d
 docker compose ps
 ```
 
-Database được tạo bởi Docker Compose. Bảng `users`, `articles` và `comments` được tạo bởi migration trong [src/database/migrations](src/database/migrations), không dùng TypeORM `synchronize`.
+Database được tạo bởi Docker Compose. Bảng `users`, `articles` và `comments`, cùng các index phục vụ truy vấn danh sách bài viết, được tạo bởi migration trong [src/database/migrations](src/database/migrations), không dùng TypeORM `synchronize`.
 
 Chạy migration thủ công:
 
@@ -144,11 +145,18 @@ Base path của API là `/api`.
 | Method   | Endpoint              | Auth         | Mô tả                  |
 | -------- | --------------------- | ------------ | ---------------------- |
 | `POST`   | `/api/articles`       | JWT          | Tạo bài viết           |
+| `GET`    | `/api/articles`       | Public       | Lấy danh sách bài viết |
 | `GET`    | `/api/articles/:slug` | Public       | Lấy bài viết theo slug |
 | `PUT`    | `/api/articles/:slug` | JWT + author | Cập nhật bài viết      |
 | `DELETE` | `/api/articles/:slug` | JWT + author | Xóa bài viết           |
 
 Tags được trim, chuyển thành chữ thường, loại bỏ phần tử rỗng và deduplicate. Slug được tạo từ title; nếu bị trùng, hệ thống thêm hậu tố tuần tự như `-2`. Khi đổi title bằng `PUT`, slug hiện tại được giữ nguyên để URL không thay đổi. `favorited` và `following` trả về `false` cho tới khi các phase favorites/following được triển khai.
+
+Danh sách bài viết hỗ trợ các query parameter `limit` (mặc định `20`, tối đa `100`), `offset` (mặc định `0`), `tag` và `author`. Kết quả có dạng `{ "articles": [...], "articlesCount": 0 }` và được sắp xếp theo `createdAt DESC`, sau đó `id DESC` để phân trang ổn định:
+
+```bash
+curl "http://localhost:3000/api/articles?tag=nestjs&author=jake&limit=10&offset=0"
+```
 
 Chỉ author của bài viết mới được phép `PUT` hoặc `DELETE`; `authorId`, `favoritesCount` và các trường nội bộ không được nhận từ request.
 

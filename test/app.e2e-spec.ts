@@ -73,6 +73,11 @@ interface CommentListResponseBody {
   commentsCount: number;
 }
 
+interface ArticleListResponseBody {
+  articles: ArticleResponseBody['article'][];
+  articlesCount: number;
+}
+
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
   let commentRepository: Repository<CommentEntity>;
@@ -461,6 +466,155 @@ describe('AppController (e2e)', () => {
       .get('/api/articles/how-to-build-a-nestjs-api')
       .expect(200)
       .expect(responseBody);
+  });
+
+  it('returns paginated articles in newest-first order', async () => {
+    const registerResponse = await request(app.getHttpServer())
+      .post('/api/users')
+      .send({
+        user: {
+          email: 'jake@example.com',
+          password: 'Password123!',
+          username: 'jake',
+        },
+      })
+      .expect(201);
+    const token = (registerResponse.body as AuthResponseBody).user.token;
+
+    for (const title of ['First article', 'Second article', 'Third article']) {
+      await request(app.getHttpServer())
+        .post('/api/articles')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          article: {
+            body: 'Article content...',
+            description: 'A short introduction',
+            tagList: ['nestjs'],
+            title,
+          },
+        })
+        .expect(201);
+    }
+
+    const allArticlesResponse = await request(app.getHttpServer())
+      .get('/api/articles')
+      .expect(200);
+    const allArticles = allArticlesResponse.body as ArticleListResponseBody;
+
+    expect(allArticles.articlesCount).toBe(3);
+    expect(allArticles.articles).toHaveLength(3);
+    expect(allArticles.articles.map(({ title }) => title)).toEqual([
+      'Third article',
+      'Second article',
+      'First article',
+    ]);
+
+    const firstPageResponse = await request(app.getHttpServer())
+      .get('/api/articles')
+      .query({ limit: 2, offset: 0 })
+      .expect(200);
+    const firstPage = firstPageResponse.body as ArticleListResponseBody;
+
+    expect(firstPage.articlesCount).toBe(3);
+    expect(firstPage.articles.map(({ slug }) => slug)).toEqual(
+      allArticles.articles.slice(0, 2).map(({ slug }) => slug),
+    );
+
+    const secondPageResponse = await request(app.getHttpServer())
+      .get('/api/articles')
+      .query({ limit: 2, offset: 2 })
+      .expect(200);
+    const secondPage = secondPageResponse.body as ArticleListResponseBody;
+
+    expect(secondPage.articlesCount).toBe(3);
+    expect(secondPage.articles.map(({ slug }) => slug)).toEqual(
+      allArticles.articles.slice(2).map(({ slug }) => slug),
+    );
+  });
+
+  it('filters articles by tag and author', async () => {
+    const jakeResponse = await request(app.getHttpServer())
+      .post('/api/users')
+      .send({
+        user: {
+          email: 'jake@example.com',
+          password: 'Password123!',
+          username: 'jake',
+        },
+      })
+      .expect(201);
+    const jakeToken = (jakeResponse.body as AuthResponseBody).user.token;
+
+    const alexResponse = await request(app.getHttpServer())
+      .post('/api/users')
+      .send({
+        user: {
+          email: 'alex@example.com',
+          password: 'Password123!',
+          username: 'alex',
+        },
+      })
+      .expect(201);
+    const alexToken = (alexResponse.body as AuthResponseBody).user.token;
+
+    await request(app.getHttpServer())
+      .post('/api/articles')
+      .set('Authorization', `Bearer ${jakeToken}`)
+      .send({
+        article: {
+          body: 'NestJS content...',
+          description: 'NestJS introduction',
+          tagList: ['nestjs'],
+          title: 'NestJS Guide',
+        },
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/api/articles')
+      .set('Authorization', `Bearer ${alexToken}`)
+      .send({
+        article: {
+          body: 'TypeScript content...',
+          description: 'TypeScript introduction',
+          tagList: ['typescript'],
+          title: 'TypeScript Guide',
+        },
+      })
+      .expect(201);
+
+    const response = await request(app.getHttpServer())
+      .get('/api/articles')
+      .query({ author: ' JAKE ', tag: ' NESTJS ' })
+      .expect(200);
+    const responseBody = response.body as ArticleListResponseBody;
+
+    expect(responseBody.articlesCount).toBe(1);
+    expect(responseBody.articles[0]?.author.username).toBe('jake');
+    expect(responseBody.articles[0]?.tagList).toEqual(['nestjs']);
+    expect(responseBody.articles[0]?.title).toBe('NestJS Guide');
+  });
+
+  it('validates article list query parameters', async () => {
+    await request(app.getHttpServer())
+      .get('/api/articles')
+      .query({ limit: 0 })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .get('/api/articles')
+      .query({ limit: 101 })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .get('/api/articles')
+      .query({ offset: -1 })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .get('/api/articles')
+      .query({ unexpected: true })
+      .expect(400);
   });
 
   it('generates a unique slug for articles with the same title', async () => {
