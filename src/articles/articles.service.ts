@@ -22,6 +22,8 @@ import { ArticleEntity } from './entities/article.entity';
 import {
   ArticleResponse,
   ArticleResponseEnvelope,
+  ArticleListQuery,
+  ArticleListResponse,
   CreateArticleInput,
   UpdateArticleInput,
 } from './interfaces/article.interface';
@@ -99,6 +101,51 @@ export class ArticlesService {
     const article = await this.findArticleOrThrow(slug);
 
     return this.toResponseEnvelope(article);
+  }
+
+  async findAll(query: ArticleListQuery): Promise<ArticleListResponse> {
+    const articleQuery = this.articlesRepository
+      .createQueryBuilder('article')
+      .innerJoinAndSelect('article.author', 'author')
+      .select([
+        'article.id',
+        'article.slug',
+        'article.title',
+        'article.description',
+        'article.body',
+        'article.tagList',
+        'article.favoritesCount',
+        'article.createdAt',
+        'article.updatedAt',
+        'author.id',
+        'author.username',
+        'author.bio',
+        'author.image',
+      ]);
+
+    const tag = query.tag?.toLowerCase();
+    const author = query.author?.toLowerCase();
+
+    if (tag) {
+      articleQuery.andWhere(':tag = ANY(article.tag_list)', { tag });
+    }
+
+    if (author) {
+      articleQuery.andWhere('author.username = :author', { author });
+    }
+
+    const articlesCount = await articleQuery.clone().getCount();
+    const articles = await articleQuery
+      .orderBy('article.createdAt', 'DESC')
+      .addOrderBy('article.id', 'DESC')
+      .skip(query.offset)
+      .take(query.limit)
+      .getMany();
+
+    return {
+      articles: articles.map((article) => this.toResponse(article)),
+      articlesCount,
+    };
   }
 
   async update(

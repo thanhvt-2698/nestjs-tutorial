@@ -51,3 +51,11 @@ export class ArticleResponseDto {
   @ApiProperty({ type: ArticleResponseDataDto })
   article!: ArticleResponseDataDto;
 }
+
+export class ArticleListResponseDto {
+  @ApiProperty({ isArray: true, type: ArticleResponseDataDto })
+  articles!: ArticleResponseDataDto[];
+
+  @ApiProperty({ example: 0 })
+  articlesCount!: number;
+}
