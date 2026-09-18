@@ -8,10 +8,12 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBadRequestResponse,
   ApiBody,
   ApiCreatedResponse,
   ApiForbiddenResponse,
@@ -28,6 +30,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { noCacheHeaders } from '../common/decorators/no-cache-headers.decorator';
 import type { AuthenticatedUser } from '../users/interfaces/user.interface';
 import { CommentsService } from './comments.service';
+import { CommentQueryDto } from './dto/comment-query.dto';
 import {
   CommentListResponseDto,
   CommentResponseDto,
@@ -52,8 +55,9 @@ export class CommentsController {
     type: CommentListResponseDto,
   })
   @ApiNotFoundResponse({ description: 'Article not found' })
-  findByArticle(@Param('slug') slug: string) {
-    return this.commentsService.findByArticle(slug);
+  @ApiBadRequestResponse({ description: 'Invalid pagination query' })
+  findByArticle(@Param('slug') slug: string, @Query() query: CommentQueryDto) {
+    return this.commentsService.findByArticle(slug, query);
   }
 
   @Post()

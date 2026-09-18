@@ -17,8 +17,14 @@ export interface CommentResponseEnvelope {
   comment: CommentResponse;
 }
 
+export interface CommentListQuery {
+  limit: number;
+  offset: number;
+}
+
 export interface CommentListResponse {
   comments: CommentResponse[];
+  commentsCount: number;
 }
 
 export interface CreateCommentInput {

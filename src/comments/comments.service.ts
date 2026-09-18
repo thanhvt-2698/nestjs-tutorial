@@ -14,6 +14,7 @@ import { COMMENT_LIST_ORDER_DIRECTION } from './constants/comments.constants';
 import {
   CommentResponse,
   CommentResponseEnvelope,
+  CommentListQuery,
   CommentListResponse,
   CreateCommentInput,
 } from './interfaces/comment.interface';
@@ -29,30 +30,37 @@ export class CommentsService {
     private readonly usersRepository: Repository<UserEntity>,
   ) {}
 
-  async findByArticle(slug: string): Promise<CommentListResponse> {
+  async findByArticle(
+    slug: string,
+    query: CommentListQuery,
+  ): Promise<CommentListResponse> {
     const article = await this.findArticleOrThrow(slug);
-    const comments = await this.commentsRepository.find({
-      order: {
-        createdAt: COMMENT_LIST_ORDER_DIRECTION,
-        id: COMMENT_LIST_ORDER_DIRECTION,
-      },
-      relations: { author: true },
-      select: {
-        author: {
-          bio: true,
-          image: true,
-          username: true,
+    const [comments, commentsCount] =
+      await this.commentsRepository.findAndCount({
+        order: {
+          createdAt: COMMENT_LIST_ORDER_DIRECTION,
+          id: COMMENT_LIST_ORDER_DIRECTION,
         },
-        body: true,
-        createdAt: true,
-        id: true,
-        updatedAt: true,
-      },
-      where: { article: { id: article.id } },
-    });
+        relations: { author: true },
+        select: {
+          author: {
+            bio: true,
+            image: true,
+            username: true,
+          },
+          body: true,
+          createdAt: true,
+          id: true,
+          updatedAt: true,
+        },
+        skip: query.offset,
+        take: query.limit,
+        where: { article: { id: article.id } },
+      });
 
     return {
       comments: comments.map((comment) => this.toResponse(comment)),
+      commentsCount,
     };
   }
 

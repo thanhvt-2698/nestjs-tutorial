@@ -70,6 +70,7 @@ interface CommentResponseBody {
 
 interface CommentListResponseBody {
   comments: CommentResponseBody['comment'][];
+  commentsCount: number;
 }
 
 describe('AppController (e2e)', () => {
@@ -681,8 +682,79 @@ describe('AppController (e2e)', () => {
       .expect(200);
     const listResponseBody = listResponse.body as CommentListResponseBody;
 
+    expect(listResponseBody.commentsCount).toBe(1);
     expect(listResponseBody.comments).toHaveLength(1);
     expect(listResponseBody.comments[0]).toEqual(responseBody.comment);
+  });
+
+  it('paginates comments and validates pagination parameters', async () => {
+    const registerResponse = await request(app.getHttpServer())
+      .post('/api/users')
+      .send({
+        user: {
+          email: 'jake@example.com',
+          password: 'Password123!',
+          username: 'jake',
+        },
+      })
+      .expect(201);
+    const token = (registerResponse.body as AuthResponseBody).user.token;
+
+    await request(app.getHttpServer())
+      .post('/api/articles')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        article: {
+          body: 'Article content...',
+          description: 'A short introduction',
+          title: 'Paginated comments article',
+        },
+      })
+      .expect(201);
+
+    for (const body of ['Comment 1', 'Comment 2', 'Comment 3', 'Comment 4']) {
+      await request(app.getHttpServer())
+        .post('/api/articles/paginated-comments-article/comments')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ comment: { body } })
+        .expect(201);
+    }
+
+    const firstPageResponse = await request(app.getHttpServer())
+      .get('/api/articles/paginated-comments-article/comments')
+      .query({ limit: 2, offset: 0 })
+      .expect(200);
+    const firstPage = firstPageResponse.body as CommentListResponseBody;
+
+    expect(firstPage.commentsCount).toBe(4);
+    expect(firstPage.comments.map(({ body }) => body)).toEqual([
+      'Comment 4',
+      'Comment 3',
+    ]);
+
+    const secondPageResponse = await request(app.getHttpServer())
+      .get('/api/articles/paginated-comments-article/comments')
+      .query({ limit: 2, offset: 2 })
+      .expect(200);
+    const secondPage = secondPageResponse.body as CommentListResponseBody;
+
+    expect(secondPage.commentsCount).toBe(4);
+    expect(secondPage.comments.map(({ body }) => body)).toEqual([
+      'Comment 2',
+      'Comment 1',
+    ]);
+
+    for (const query of [
+      { limit: 0 },
+      { limit: 101 },
+      { offset: -1 },
+      { unexpected: true },
+    ]) {
+      await request(app.getHttpServer())
+        .get('/api/articles/paginated-comments-article/comments')
+        .query(query)
+        .expect(400);
+    }
   });
 
   it('rejects unauthenticated and invalid comment creation', async () => {

@@ -43,4 +43,7 @@ export class CommentResponseDto {
 export class CommentListResponseDto {
   @ApiProperty({ isArray: true, type: CommentResponseDataDto })
   comments!: CommentResponseDataDto[];
+
+  @ApiProperty({ example: 0 })
+  commentsCount!: number;
 }

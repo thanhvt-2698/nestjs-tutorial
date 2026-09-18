@@ -160,6 +160,8 @@ Chỉ author của bài viết mới được phép `PUT` hoặc `DELETE`; `auth
 | `POST`   | `/api/articles/:slug/comments`     | JWT                  | Tạo comment                |
 | `DELETE` | `/api/articles/:slug/comments/:id` | JWT + comment author | Xóa comment của chính mình |
 
+Endpoint list comment hỗ trợ `limit` (mặc định `20`, tối đa `100`) và `offset` (mặc định `0`). Response có dạng `{ "comments": [...], "commentsCount": 0 }` và được sắp xếp theo comment mới nhất trước.
+
 Comment body được trim và giới hạn tối đa 10.000 ký tự. `authorId` và `articleId` luôn được lấy từ JWT/slug, không nhận từ request. Comment không có endpoint update; khi xóa article, các comment liên quan được xóa bằng foreign key `ON DELETE CASCADE`.
 
 Các endpoint cần xác thực sử dụng một trong hai header sau:
@@ -168,6 +170,7 @@ Các endpoint cần xác thực sử dụng một trong hai header sau:
 Authorization: Bearer <jwt>
 Authorization: Token <jwt>
 ```
+
 ## Kiểm thử và coding standard
 
 Unit test:
