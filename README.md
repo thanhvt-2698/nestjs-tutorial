@@ -9,6 +9,7 @@ Backend API được xây dựng bằng NestJS, lấy cảm hứng từ [RealWor
 - Cập nhật username, password, bio và image của user hiện tại.
 - Xem profile public theo username.
 - CRUD bài viết với slug ổn định, author profile và phân quyền theo tác giả.
+- Tạo, xem và xóa comment trên bài viết; không hỗ trợ cập nhật comment.
 - Validate request body và giới hạn tốc độ request đăng nhập.
 - Lưu trữ user trong PostgreSQL thông qua TypeORM.
 - Tài liệu API tương tác bằng Swagger/OpenAPI.
@@ -77,7 +78,7 @@ docker compose up -d
 docker compose ps
 ```
 
-Database được tạo bởi Docker Compose. Bảng `users` và `articles` được tạo bởi migration trong [src/database/migrations](src/database/migrations), không dùng TypeORM `synchronize`.
+Database được tạo bởi Docker Compose. Bảng `users`, `articles` và `comments` được tạo bởi migration trong [src/database/migrations](src/database/migrations), không dùng TypeORM `synchronize`.
 
 Chạy migration thủ công:
 
@@ -151,51 +152,23 @@ Tags được trim, chuyển thành chữ thường, loại bỏ phần tử r�
 
 Chỉ author của bài viết mới được phép `PUT` hoặc `DELETE`; `authorId`, `favoritesCount` và các trường nội bộ không được nhận từ request.
 
+## Comments API
+
+| Method   | Endpoint                           | Auth                 | Mô tả                      |
+| -------- | ---------------------------------- | -------------------- | -------------------------- |
+| `GET`    | `/api/articles/:slug/comments`     | Public               | Lấy danh sách comment      |
+| `POST`   | `/api/articles/:slug/comments`     | JWT                  | Tạo comment                |
+| `DELETE` | `/api/articles/:slug/comments/:id` | JWT + comment author | Xóa comment của chính mình |
+
+Endpoint list comment hỗ trợ `limit` (mặc định `20`, tối đa `100`) và `offset` (mặc định `0`). Response có dạng `{ "comments": [...], "commentsCount": 0 }` và được sắp xếp theo comment mới nhất trước.
+
+Comment body được trim và giới hạn tối đa 10.000 ký tự. `authorId` và `articleId` luôn được lấy từ JWT/slug, không nhận từ request. Comment không có endpoint update; khi xóa article, các comment liên quan được xóa bằng foreign key `ON DELETE CASCADE`.
+
 Các endpoint cần xác thực sử dụng một trong hai header sau:
 
 ```text
 Authorization: Bearer <jwt>
 Authorization: Token <jwt>
-```
-
-Đăng ký user:
-
-```bash
-curl -X POST http://localhost:3000/api/users \
-  -H "Content-Type: application/json" \
-  -d '{"user":{"email":"jake@example.com","username":"jake","password":"Password123!"}}'
-```
-
-Đăng nhập:
-
-```bash
-curl -X POST http://localhost:3000/api/users/login \
-  -H "Content-Type: application/json" \
-  -d '{"user":{"email":"jake@example.com","password":"Password123!"}}'
-```
-
-Để test endpoint `/api/user`, lấy `token` từ response đăng nhập rồi gửi:
-
-```bash
-curl http://localhost:3000/api/user \
-  -H "Authorization: Bearer <jwt>"
-```
-
-Cập nhật một phần user hiện tại:
-
-```bash
-curl -X PUT http://localhost:3000/api/user \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <jwt>" \
-  -d '{"user":{"bio":"Backend developer","image":"https://example.com/avatar.png"}}'
-```
-
-Email không được phép thay đổi. Response cập nhật luôn trả về token mới. Khi đổi password, password cũ sẽ không còn đăng nhập được.
-
-Xem profile public, không cần JWT:
-
-```bash
-curl http://localhost:3000/api/profiles/jake
 ```
 
 ## Kiểm thử và coding standard
@@ -255,6 +228,7 @@ npm run db:migration:run:test
 ├── src/
 │   ├── articles/             # Article entity, CRUD service/controller và DTO
 │   ├── auth/                # Registration, login và JWT authentication
+│   ├── comments/             # Comment entity, CRUD service/controller và DTO
 │   ├── config/              # Application và database configuration
 │   ├── database/migrations/ # TypeORM migrations
 │   ├── users/               # User controllers, DTOs, entity và service

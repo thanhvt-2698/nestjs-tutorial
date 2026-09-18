@@ -1,0 +1,6 @@
+export const DEFAULT_COMMENT_FOLLOWING_STATUS = false;
+export const COMMENT_LIST_ORDER_DIRECTION = 'DESC' as const;
+export const DEFAULT_COMMENTS_LIMIT = 20;
+export const DEFAULT_COMMENTS_OFFSET = 0;
+export const MAX_COMMENT_BODY_LENGTH = 10_000;
+export const MAX_COMMENTS_LIMIT = 100;

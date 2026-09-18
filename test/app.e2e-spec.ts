@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import type { Repository } from 'typeorm';
+import { CommentEntity } from './../src/comments/entities/comment.entity';
 import { AppModule } from './../src/app.module';
 import { UserEntity } from './../src/users/entities/user.entity';
 import { UsersService } from './../src/users/users.service';
@@ -52,8 +53,29 @@ interface ArticleResponseBody {
   };
 }
 
+interface CommentResponseBody {
+  comment: {
+    author: {
+      bio: null;
+      following: false;
+      image: null;
+      username: string;
+    };
+    body: string;
+    createdAt: string;
+    id: string;
+    updatedAt: string;
+  };
+}
+
+interface CommentListResponseBody {
+  comments: CommentResponseBody['comment'][];
+  commentsCount: number;
+}
+
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
+  let commentRepository: Repository<CommentEntity>;
   let userRepository: Repository<UserEntity>;
 
   beforeEach(async () => {
@@ -72,6 +94,9 @@ describe('AppController (e2e)', () => {
     await app.init();
     userRepository = app.get<Repository<UserEntity>>(
       getRepositoryToken(UserEntity),
+    );
+    commentRepository = app.get<Repository<CommentEntity>>(
+      getRepositoryToken(CommentEntity),
     );
     await userRepository.query(
       'TRUNCATE TABLE "users" RESTART IDENTITY CASCADE',
@@ -605,6 +630,282 @@ describe('AppController (e2e)', () => {
         unexpected: true,
       })
       .expect(400);
+  });
+
+  it('creates and lists comments with the author profile', async () => {
+    const registerResponse = await request(app.getHttpServer())
+      .post('/api/users')
+      .send({
+        user: {
+          email: 'jake@example.com',
+          password: 'Password123!',
+          username: 'jake',
+        },
+      })
+      .expect(201);
+    const token = (registerResponse.body as AuthResponseBody).user.token;
+
+    await request(app.getHttpServer())
+      .post('/api/articles')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        article: {
+          body: 'Article content...',
+          description: 'A short introduction',
+          title: 'Comments article',
+        },
+      })
+      .expect(201);
+
+    const createResponse = await request(app.getHttpServer())
+      .post('/api/articles/comments-article/comments')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ comment: { body: 'This is useful, thank you!' } })
+      .expect(201);
+    const responseBody = createResponse.body as CommentResponseBody;
+
+    expect(responseBody.comment).toMatchObject({
+      author: {
+        bio: null,
+        following: false,
+        image: null,
+        username: 'jake',
+      },
+      body: 'This is useful, thank you!',
+    });
+    expect(responseBody.comment.id).toEqual(expect.any(String));
+    expect(responseBody.comment.createdAt).toEqual(expect.any(String));
+    expect(responseBody.comment.updatedAt).toEqual(expect.any(String));
+
+    const listResponse = await request(app.getHttpServer())
+      .get('/api/articles/comments-article/comments')
+      .expect(200);
+    const listResponseBody = listResponse.body as CommentListResponseBody;
+
+    expect(listResponseBody.commentsCount).toBe(1);
+    expect(listResponseBody.comments).toHaveLength(1);
+    expect(listResponseBody.comments[0]).toEqual(responseBody.comment);
+  });
+
+  it('paginates comments and validates pagination parameters', async () => {
+    const registerResponse = await request(app.getHttpServer())
+      .post('/api/users')
+      .send({
+        user: {
+          email: 'jake@example.com',
+          password: 'Password123!',
+          username: 'jake',
+        },
+      })
+      .expect(201);
+    const token = (registerResponse.body as AuthResponseBody).user.token;
+
+    await request(app.getHttpServer())
+      .post('/api/articles')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        article: {
+          body: 'Article content...',
+          description: 'A short introduction',
+          title: 'Paginated comments article',
+        },
+      })
+      .expect(201);
+
+    for (const body of ['Comment 1', 'Comment 2', 'Comment 3', 'Comment 4']) {
+      await request(app.getHttpServer())
+        .post('/api/articles/paginated-comments-article/comments')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ comment: { body } })
+        .expect(201);
+    }
+
+    const firstPageResponse = await request(app.getHttpServer())
+      .get('/api/articles/paginated-comments-article/comments')
+      .query({ limit: 2, offset: 0 })
+      .expect(200);
+    const firstPage = firstPageResponse.body as CommentListResponseBody;
+
+    expect(firstPage.commentsCount).toBe(4);
+    expect(firstPage.comments.map(({ body }) => body)).toEqual([
+      'Comment 4',
+      'Comment 3',
+    ]);
+
+    const secondPageResponse = await request(app.getHttpServer())
+      .get('/api/articles/paginated-comments-article/comments')
+      .query({ limit: 2, offset: 2 })
+      .expect(200);
+    const secondPage = secondPageResponse.body as CommentListResponseBody;
+
+    expect(secondPage.commentsCount).toBe(4);
+    expect(secondPage.comments.map(({ body }) => body)).toEqual([
+      'Comment 2',
+      'Comment 1',
+    ]);
+
+    for (const query of [
+      { limit: 0 },
+      { limit: 101 },
+      { offset: -1 },
+      { unexpected: true },
+    ]) {
+      await request(app.getHttpServer())
+        .get('/api/articles/paginated-comments-article/comments')
+        .query(query)
+        .expect(400);
+    }
+  });
+
+  it('rejects unauthenticated and invalid comment creation', async () => {
+    await request(app.getHttpServer())
+      .post('/api/articles/unknown-article/comments')
+      .send({ comment: { body: 'Not allowed' } })
+      .expect(401);
+
+    const registerResponse = await request(app.getHttpServer())
+      .post('/api/users')
+      .send({
+        user: {
+          email: 'jake@example.com',
+          password: 'Password123!',
+          username: 'jake',
+        },
+      })
+      .expect(201);
+    const token = (registerResponse.body as AuthResponseBody).user.token;
+
+    await request(app.getHttpServer())
+      .post('/api/articles')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        article: {
+          body: 'Article content...',
+          description: 'A short introduction',
+          title: 'Invalid comment body',
+        },
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/api/articles/unknown-article/comments')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ comment: { body: 'Article does not exist' } })
+      .expect(404);
+
+    await request(app.getHttpServer())
+      .post('/api/articles/invalid-comment-body/comments')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ comment: { body: '   ' } })
+      .expect(400);
+  });
+
+  it('allows only the comment author to delete a comment', async () => {
+    const ownerResponse = await request(app.getHttpServer())
+      .post('/api/users')
+      .send({
+        user: {
+          email: 'jake@example.com',
+          password: 'Password123!',
+          username: 'jake',
+        },
+      })
+      .expect(201);
+    const ownerToken = (ownerResponse.body as AuthResponseBody).user.token;
+
+    const otherUserResponse = await request(app.getHttpServer())
+      .post('/api/users')
+      .send({
+        user: {
+          email: 'alex@example.com',
+          password: 'Password123!',
+          username: 'alex',
+        },
+      })
+      .expect(201);
+    const otherUserToken = (otherUserResponse.body as AuthResponseBody).user
+      .token;
+
+    await request(app.getHttpServer())
+      .post('/api/articles')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        article: {
+          body: 'Article content...',
+          description: 'A short introduction',
+          title: 'Comment ownership',
+        },
+      })
+      .expect(201);
+
+    const commentResponse = await request(app.getHttpServer())
+      .post('/api/articles/comment-ownership/comments')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ comment: { body: 'Owner comment' } })
+      .expect(201);
+    const commentId = (commentResponse.body as CommentResponseBody).comment.id;
+
+    await request(app.getHttpServer())
+      .delete(`/api/articles/comment-ownership/comments/${commentId}`)
+      .set('Authorization', `Bearer ${otherUserToken}`)
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .delete('/api/articles/comment-ownership/comments/not-a-uuid')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .delete(`/api/articles/comment-ownership/comments/${commentId}`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(204);
+
+    const listResponse = await request(app.getHttpServer())
+      .get('/api/articles/comment-ownership/comments')
+      .expect(200);
+    expect((listResponse.body as CommentListResponseBody).comments).toEqual([]);
+  });
+
+  it('cascades comments when their article is deleted', async () => {
+    const registerResponse = await request(app.getHttpServer())
+      .post('/api/users')
+      .send({
+        user: {
+          email: 'jake@example.com',
+          password: 'Password123!',
+          username: 'jake',
+        },
+      })
+      .expect(201);
+    const token = (registerResponse.body as AuthResponseBody).user.token;
+
+    await request(app.getHttpServer())
+      .post('/api/articles')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        article: {
+          body: 'Article content...',
+          description: 'A short introduction',
+          title: 'Comment cascade',
+        },
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/api/articles/comment-cascade/comments')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ comment: { body: 'This should be deleted with the article' } })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .delete('/api/articles/comment-cascade')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(204);
+
+    expect(await commentRepository.count()).toBe(0);
+    await request(app.getHttpServer())
+      .get('/api/articles/comment-cascade/comments')
+      .expect(404);
   });
 
   afterEach(async () => {
